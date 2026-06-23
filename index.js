@@ -1,9 +1,11 @@
 const express = require('express');
+var cors = require('cors')
 const app = express()
 const port = process.env.PORT || 8000
 require('dotenv').config()
 
-
+app.use(cors());
+app.use(express.json());
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = process.env.MONGO_DB_URI;
 
@@ -23,16 +25,34 @@ async function run() {
 
         const database = client.db("onlineTicket");
         const ticketsCollection = database.collection("tickets");
+        const addTicketCollection = database.collection('addTicket');
 
         // Latest 8 tickets
         app.get('/tickets/latest', async (req, res) => {
-                const tickets = await ticketsCollection
-                    .find()
-                    .sort({ createdAt: -1 })  // নতুন আগে
-                    .limit(8)
-                    .toArray();
-                res.send(tickets); 
+            const tickets = await ticketsCollection
+                .find()
+                .sort({ createdAt: -1 })  // নতুন আগে
+                .limit(8)
+                .toArray();
+            res.send(tickets);
         })
+        app.post('/api/addticket', async (req, res) => {
+            const data = req.body;
+            console.log(data);
+            const result = await addTicketCollection.insertOne(data)
+            res.send(result)
+        })
+        // ... আপনার আগের কোড (যেমন: app.post('/api/addticket', ...))
+
+        // এটি যোগ করুন: addTicket কালেকশন থেকে সব টিকিট ফ্রন্টএন্ডে পাঠানোর জন্য
+        app.get('/api/addticket', async (req, res) => {
+            try {
+                const result = await addTicketCollection.find().toArray();
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ message: "Data fetch" });
+            }
+        });
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
