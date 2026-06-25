@@ -26,7 +26,7 @@ async function run() {
 
         const database = client.db("onlineTicket");
         const addTicketCollection = database.collection('addTicket');
-
+        const bookingsCollection = database.collection('bookings'); // নতুন কালেকশন
 
         app.post('/api/addticket', async (req, res) => {
             const data = req.body;
@@ -98,6 +98,52 @@ async function run() {
             } catch (error) {
                 console.error("Error deleting ticket:", error);
                 res.status(500).send({ success: false, message: "Failed to delete ticket" });
+            }
+        });
+        // ১. সিঙ্গেল টিকিটের ডিটেইলস পাওয়ার এপিআই
+        app.get('/api/tickets/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const query = { _id: new ObjectId(id) };
+                const result = await addTicketCollection.findOne(query);
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ message: "Failed to fetch ticket details" });
+            }
+        });
+
+
+
+        app.post('/api/bookings', async (req, res) => {
+            try {
+                const bookingData = req.body;
+                // বুকিং ইনিশিয়ালি "pending" থাকবে রিকোয়ারমেন্ট অনুযায়ী
+                bookingData.status = "pending";
+                bookingData.createdAt = new Date();
+
+                const result = await bookingsCollection.insertOne(bookingData);
+                res.status(201).send(result);
+            } catch (error) {
+                console.error("Booking error:", error);
+                res.status(500).send({ success: false, message: "Booking failed" });
+            }
+        });
+
+        app.get('/api/bookings', async (req, res) => {
+            try {
+                const { email } = req.query; // ফ্রন্টএন্ড থেকে পাঠানো কুয়েরি রিসিভ করবে
+                if (!email) {
+                    return res.status(400).json({ message: "Email is required" });
+                }
+
+                // ডাটাবেজের 'userEmail' এর সাথে কুয়েরির ইমেইল ম্যাচ করানো হচ্ছে
+                const query = { userEmail: email };
+
+                const userBookings = await bookingsCollection.find(query).toArray();
+                res.status(200).send(userBookings);
+            } catch (error) {
+                console.error("Error fetching bookings:", error);
+                res.status(500).json({ message: "Server Error", error: error.message });
             }
         });
 
