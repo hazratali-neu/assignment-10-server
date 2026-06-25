@@ -6,7 +6,7 @@ require('dotenv').config()
 
 app.use(cors());
 app.use(express.json());
- const { ObjectId } = require('mongodb'); // ফাইলের ওপরে এটি নিশ্চিত করুন
+const { ObjectId } = require('mongodb'); // ফাইলের ওপরে এটি নিশ্চিত করুন
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = process.env.MONGO_DB_URI;
 
@@ -25,27 +25,16 @@ async function run() {
         await client.connect();
 
         const database = client.db("onlineTicket");
-        const ticketsCollection = database.collection("tickets");
         const addTicketCollection = database.collection('addTicket');
 
-        // Latest 8 tickets
-        app.get('/tickets/latest', async (req, res) => {
-            const tickets = await ticketsCollection
-                .find()
-                .sort({ createdAt: -1 })  // নতুন আগে
-                .limit(8)
-                .toArray();
-            res.send(tickets);
-        })
+
         app.post('/api/addticket', async (req, res) => {
             const data = req.body;
             console.log(data);
             const result = await addTicketCollection.insertOne(data)
             res.send(result)
         })
-        // ... আপনার আগের কোড (যেমন: app.post('/api/addticket', ...))
 
-        // এটি যোগ করুন: addTicket কালেকশন থেকে সব টিকিট ফ্রন্টএন্ডে পাঠানোর জন্য
         app.get('/api/addticket', async (req, res) => {
             try {
                 const result = await addTicketCollection.find().toArray();
@@ -54,9 +43,31 @@ async function run() {
                 res.status(500).send({ message: "Data fetch" });
             }
         });
-         
+        app.get('/api/tickets/approved', async (req, res) => {
+            try {
+                const { from, to, transportType } = req.query;
+                let query = { verificationStatus: "approved" };
 
-        // 🟠 PATCH: নির্দিষ্ট ফিল্ড আংশিক বা সম্পূর্ণ আপডেট করার জন্য
+                if (from) {
+                    query.fromLocation = { $regex: from, $options: 'i' };
+                }
+
+                if (to) {
+                    query.toLocation = { $regex: to, $options: 'i' };
+                }
+
+                if (transportType && transportType !== 'All') {
+                    query.transportType = transportType;
+                }
+
+                const result = await addTicketCollection.find(query).toArray();
+                res.send(result);
+            } catch (error) {
+                console.error("Error fetching approved tickets:", error);
+                res.status(500).send({ message: "Internal Server Error" });
+            }
+        });
+
         app.patch('/api/addticket/:id', async (req, res) => {
             try {
                 const id = req.params.id;
@@ -77,8 +88,6 @@ async function run() {
                 res.status(500).send({ success: false, message: "Failed to update ticket" });
             }
         });
-
-        // 🔴 DELETE: আইডি অনুযায়ী টিকিট ডিলিট করার জন্য
         app.delete('/api/addticket/:id', async (req, res) => {
             try {
                 const id = req.params.id;
@@ -103,9 +112,9 @@ async function run() {
 run().catch(console.dir);
 
 
-// app.get('/', (req, res) => {
-//     res.send('Hello World!')
-// })
+app.get('/', (req, res) => {
+    res.send('Hello World!')
+})
 
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`)
