@@ -28,8 +28,8 @@ async function run() {
         const usersCollection = database.collection('user');
         const transactionsCollection = database.collection('transactions');
 
-    
-        
+
+
         app.post('/api/addticket', async (req, res) => {
             const data = req.body;
             const result = await addTicketCollection.insertOne(data)
@@ -61,12 +61,23 @@ async function run() {
                 res.status(500).send({ message: "Internal Server Error" });
             }
         });
+        app.get('/api/tickets/latest', async (req, res) => {
+            try {
+                const result = await addTicketCollection
+                    .find({ verificationStatus: "approved", isHidden: { $ne: true } })
+                    .sort({ _id: -1 })  
+                    .limit(8)            
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ message: "Failed to fetch latest tickets" });
+            }
+        });
 
         app.get('/api/tickets/advertised', async (req, res) => {
             try {
-                const result = await addTicketCollection.find({ 
+                const result = await addTicketCollection.find({
                     verificationStatus: "approved",
-                    $or: [{ isAdvertised: true }, { isAdvertised: "true" }] 
+                    $or: [{ isAdvertised: true }, { isAdvertised: "true" }]
                 }).toArray();
                 res.send(result);
             } catch (error) {
