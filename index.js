@@ -149,8 +149,17 @@ async function run() {
             res.status(200).send(result);
         });
 
-      
-        
+        app.patch('/api/users/:id/role', async (req, res) => {
+            const result = await usersCollection.updateOne({ _id: new ObjectId(req.params.id) }, { $set: { role: req.body.role } });
+            res.status(200).send(result);
+        });
+
+        app.patch('/api/users/:id/fraud', async (req, res) => {
+            await usersCollection.updateOne({ _id: new ObjectId(req.params.id) }, { $set: { role: 'fraud', isFraud: true } });
+            await addTicketCollection.updateMany({ vendorEmail: req.body.email }, { $set: { isHidden: true } });
+            res.status(200).send({ success: true });
+        });
+
 
         await client.db("admin").command({ ping: 1 });
         console.log("Connected to MongoDB!");
