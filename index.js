@@ -160,6 +160,16 @@ async function run() {
             res.status(200).send({ success: true });
         });
 
+        app.post('/api/transactions', async (req, res) => {
+            const result = await transactionsCollection.insertOne({ ...req.body, paymentDate: new Date() });
+            res.status(201).send(result);
+        });
+
+        app.get('/api/transactions', async (req, res) => {
+            const result = await transactionsCollection.find({ userEmail: req.query.email }).toArray();
+            res.status(200).send(result);
+        });
+
 
         await client.db("admin").command({ ping: 1 });
         console.log("Connected to MongoDB!");
