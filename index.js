@@ -6,11 +6,10 @@ require('dotenv').config()
 
 app.use(cors());
 app.use(express.json());
-const { ObjectId } = require('mongodb'); // ফাইলের ওপরে এটি নিশ্চিত করুন
+const { ObjectId } = require('mongodb');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = process.env.MONGO_DB_URI;
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
@@ -21,89 +20,64 @@ const client = new MongoClient(uri, {
 
 async function run() {
     try {
-        // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
 
         const database = client.db("onlineTicket");
         const addTicketCollection = database.collection('addTicket');
-        const bookingsCollection = database.collection('bookings'); // নতুন কালেকশন
+        const bookingsCollection = database.collection('bookings');
+        const usersCollection = database.collection('user');
+        const transactionsCollection = database.collection('transactions');
 
+    
+        
         app.post('/api/addticket', async (req, res) => {
             const data = req.body;
-            console.log(data);
             const result = await addTicketCollection.insertOne(data)
             res.send(result)
         })
 
         app.get('/api/addticket', async (req, res) => {
             try {
-                const result = await addTicketCollection.find().toArray();
-                res.send(result);
-            } catch (error) {
-                res.status(500).send({ message: "Data fetch" });
-            }
-        });
-        app.get('/api/tickets/approved', async (req, res) => {
-            try {
-                const { from, to, transportType } = req.query;
-                let query = { verificationStatus: "approved" };
-
-                if (from) {
-                    query.fromLocation = { $regex: from, $options: 'i' };
-                }
-
-                if (to) {
-                    query.toLocation = { $regex: to, $options: 'i' };
-                }
-
-                if (transportType && transportType !== 'All') {
-                    query.transportType = transportType;
-                }
-
+                const { email } = req.query;
+                let query = { isHidden: { $ne: true } };
+                if (email) query.vendorEmail = email;
                 const result = await addTicketCollection.find(query).toArray();
                 res.send(result);
             } catch (error) {
-                console.error("Error fetching approved tickets:", error);
+                res.status(500).send({ message: "Data fetch error" });
+            }
+        });
+
+        app.get('/api/tickets/approved', async (req, res) => {
+            try {
+                const { from, to, transportType } = req.query;
+                let query = { verificationStatus: "approved", isHidden: { $ne: true } };
+                if (from) query.fromLocation = { $regex: from, $options: 'i' };
+                if (to) query.toLocation = { $regex: to, $options: 'i' };
+                if (transportType && transportType !== 'All') query.transportType = transportType;
+                const result = await addTicketCollection.find(query).toArray();
+                res.send(result);
+            } catch (error) {
                 res.status(500).send({ message: "Internal Server Error" });
             }
         });
 
-        app.patch('/api/addticket/:id', async (req, res) => {
+        app.get('/api/tickets/advertised', async (req, res) => {
             try {
-                const id = req.params.id;
-                const updatedData = req.body;
-
-                // _id মঙ্গোডিবিতে মডিফাই করা যায় না, তাই অবজেক্ট থেকে ডিলিট করা হলো
-                delete updatedData._id;
-
-                const filter = { _id: new ObjectId(id) };
-                const updateDoc = {
-                    $set: updatedData,
-                };
-
-                const result = await addTicketCollection.updateOne(filter, updateDoc);
-                res.status(200).send(result);
+                const result = await addTicketCollection.find({ 
+                    verificationStatus: "approved",
+                    $or: [{ isAdvertised: true }, { isAdvertised: "true" }] 
+                }).toArray();
+                res.send(result);
             } catch (error) {
-                console.error("Error updating ticket:", error);
-                res.status(500).send({ success: false, message: "Failed to update ticket" });
+                res.status(500).send({ message: "Server Error" });
             }
         });
-        app.delete('/api/addticket/:id', async (req, res) => {
-            try {
-                const id = req.params.id;
-                const filter = { _id: new ObjectId(id) };
 
-                const result = await addTicketCollection.deleteOne(filter);
-                res.status(200).send(result);
-            } catch (error) {
-                console.error("Error deleting ticket:", error);
-                res.status(500).send({ success: false, message: "Failed to delete ticket" });
-            }
-        });
-        // ১. সিঙ্গেল টিকিটের ডিটেইলস পাওয়ার এপিআই
         app.get('/api/tickets/:id', async (req, res) => {
             try {
                 const id = req.params.id;
+                if (id.length !== 24) return res.status(400).send({ message: "Invalid ID" });
                 const query = { _id: new ObjectId(id) };
                 const result = await addTicketCollection.findOne(query);
                 res.send(result);
@@ -112,56 +86,77 @@ async function run() {
             }
         });
 
+        app.patch('/api/addticket/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const updatedData = req.body;
+                delete updatedData._id;
+                const result = await addTicketCollection.updateOne({ _id: new ObjectId(id) }, { $set: updatedData });
+                res.status(200).send(result);
+            } catch (error) {
+                res.status(500).send({ success: false, message: "Failed to update ticket" });
+            }
+        });
 
+        app.delete('/api/addticket/:id', async (req, res) => {
+            try {
+                const result = await addTicketCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+                res.status(200).send(result);
+            } catch (error) {
+                res.status(500).send({ success: false, message: "Failed to delete ticket" });
+            }
+        });
 
         app.post('/api/bookings', async (req, res) => {
-            try {
-                const bookingData = req.body;
-                // বুকিং ইনিশিয়ালি "pending" থাকবে রিকোয়ারমেন্ট অনুযায়ী
-                bookingData.status = "pending";
-                bookingData.createdAt = new Date();
-
-                const result = await bookingsCollection.insertOne(bookingData);
-                res.status(201).send(result);
-            } catch (error) {
-                console.error("Booking error:", error);
-                res.status(500).send({ success: false, message: "Booking failed" });
+            const bookingData = req.body;
+            const vendor = await usersCollection.findOne({ email: bookingData.vendorEmail });
+            if (vendor && (vendor.role === 'fraud' || vendor.isFraud === true)) {
+                return res.status(403).json({ success: false, message: "This vendor is banned!" });
             }
+            bookingData.status = "pending";
+            bookingData.createdAt = new Date();
+            const result = await bookingsCollection.insertOne(bookingData);
+            res.status(201).send(result);
         });
 
         app.get('/api/bookings', async (req, res) => {
-            try {
-                const { email } = req.query; // ফ্রন্টএন্ড থেকে পাঠানো কুয়েরি রিসিভ করবে
-                if (!email) {
-                    return res.status(400).json({ message: "Email is required" });
-                }
-
-                // ডাটাবেজের 'userEmail' এর সাথে কুয়েরির ইমেইল ম্যাচ করানো হচ্ছে
-                const query = { userEmail: email };
-
-                const userBookings = await bookingsCollection.find(query).toArray();
-                res.status(200).send(userBookings);
-            } catch (error) {
-                console.error("Error fetching bookings:", error);
-                res.status(500).json({ message: "Server Error", error: error.message });
-            }
+            const { email } = req.query;
+            const result = await bookingsCollection.find({ userEmail: email }).toArray();
+            res.status(200).send(result);
         });
 
-        // Send a ping to confirm a successful connection
+        app.get('/api/vendor/bookings', async (req, res) => {
+            const { email } = req.query;
+            const result = await bookingsCollection.find({ vendorEmail: email }).toArray();
+            res.status(200).send(result);
+        });
+
+        app.patch('/api/bookings/vendor-update', async (req, res) => {
+            const { bookingId, action } = req.body;
+            const result = await bookingsCollection.updateOne({ _id: new ObjectId(bookingId) }, { $set: { status: action } });
+            res.status(200).json(result);
+        });
+
+        app.patch('/api/bookings/update-status', async (req, res) => {
+            const { bookingId, status } = req.body;
+            const booking = await bookingsCollection.findOne({ _id: new ObjectId(bookingId) });
+            await bookingsCollection.updateOne({ _id: new ObjectId(bookingId) }, { $set: { status: status } });
+            await addTicketCollection.updateOne({ _id: new ObjectId(booking.ticketId) }, { $inc: { quantity: -booking.bookingQuantity } });
+            res.status(200).json({ message: "Updated!" });
+        });
+        app.get('/api/users', async (req, res) => {
+            const result = await usersCollection.find().toArray();
+            res.status(200).send(result);
+        });
+
+      
+        
+
         await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    } finally {
-        // Ensures that the client will close when you finish/error
-        // await client.close();
-    }
+        console.log("Connected to MongoDB!");
+    } finally { }
 }
 run().catch(console.dir);
 
-
-app.get('/', (req, res) => {
-    res.send('Hello World!')
-})
-
-app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`)
-})
+app.get('/', (req, res) => { res.send('Hello World!') })
+app.listen(port, () => { console.log(`Listening on port ${port}`) })
