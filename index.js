@@ -189,7 +189,12 @@ async function run() {
             res.send(result);
         });
 
-       
+        app.patch('/api/admin/tickets/advertise/:id', async (req, res) => {
+            const count = await addTicketCollection.countDocuments({ isAdvertised: true });
+            if (req.body.isAdvertised === true && count >= 6) return res.status(400).json({ message: "Limit 6!" });
+            const result = await addTicketCollection.updateOne({ _id: new ObjectId(req.params.id) }, { $set: { isAdvertised: req.body.isAdvertised } });
+            res.status(200).send({ success: true, result });
+        });
 
         await client.db("admin").command({ ping: 1 });
         console.log("Connected to MongoDB!");
