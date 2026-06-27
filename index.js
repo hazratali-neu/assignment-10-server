@@ -170,7 +170,27 @@ async function run() {
             res.status(200).send(result);
         });
 
-      
+        app.get('/api/vendor/revenue-overview', async (req, res) => {
+            const email = req.query.email;
+            const totalTicketsCount = await addTicketCollection.countDocuments({ vendorEmail: email });
+            const paidBookings = await bookingsCollection.find({ vendorEmail: email, status: "paid" }).toArray();
+            let totalTicketsSold = 0;
+            let totalRevenue = 0;
+            const chartData = paidBookings.map(b => {
+                totalTicketsSold += Number(b.bookingQuantity);
+                totalRevenue += Number(b.totalPrice);
+                return { name: b.title.substring(0, 10), Revenue: Number(b.totalPrice), Quantity: Number(b.bookingQuantity) };
+            });
+            res.status(200).json({ totalTicketsAdded: totalTicketsCount, totalTicketsSold, totalRevenue, chartData });
+        });
+
+        app.get('/api/admin/tickets/approved', async (req, res) => {
+            const result = await addTicketCollection.find({ verificationStatus: "approved" }).toArray();
+            res.send(result);
+        });
+
+       
+
         await client.db("admin").command({ ping: 1 });
         console.log("Connected to MongoDB!");
     } finally { }
