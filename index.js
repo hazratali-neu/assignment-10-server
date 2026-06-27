@@ -170,7 +170,7 @@ async function run() {
             res.status(200).send(result);
         });
 
-
+      
         await client.db("admin").command({ ping: 1 });
         console.log("Connected to MongoDB!");
     } finally { }
