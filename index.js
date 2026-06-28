@@ -29,12 +29,18 @@ async function run() {
         const transactionsCollection = database.collection('transactions');
 
 
-
         app.post('/api/addticket', async (req, res) => {
             const data = req.body;
-            const result = await addTicketCollection.insertOne(data)
-            res.send(result)
-        })
+
+            // ফ্রড চেক যোগ করুন
+            const vendor = await usersCollection.findOne({ email: data.vendorEmail });
+            if (vendor && vendor.isFraud === true) {
+                return res.status(403).send({ message: "Access Denied: You are restricted from adding tickets." });
+            }
+
+            const result = await addTicketCollection.insertOne(data);
+            res.send(result);
+        });
 
         app.get('/api/addticket', async (req, res) => {
             try {
@@ -65,30 +71,30 @@ async function run() {
             try {
                 const result = await addTicketCollection
                     .find({ verificationStatus: "approved", isHidden: { $ne: true } })
-                    .sort({ _id: -1 })  
-                    .limit(8) 
-                    .toArray()           
+                    .sort({ _id: -1 })
+                    .limit(8)
+                    .toArray()
                 res.send(result);
             } catch (error) {
                 res.status(500).send({ message: "Failed to fetch latest tickets" });
             }
         });
 
-    app.get('/api/tickets/advertised', async (req, res) => {
-    try {
-        const result = await addTicketCollection
-            .find({
-                verificationStatus: "approved",
-                isAdvertised: true
-            })
-            .limit(6)
-            .toArray();
+        app.get('/api/tickets/advertised', async (req, res) => {
+            try {
+                const result = await addTicketCollection
+                    .find({
+                        verificationStatus: "approved",
+                        isAdvertised: true
+                    })
+                    .limit(6)
+                    .toArray();
 
-        res.send(result);
-    } catch (error) {
-        res.status(500).send({ message: "Server Error" });
-    }
-});
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ message: "Server Error" });
+            }
+        });
 
         app.get('/api/tickets/:id', async (req, res) => {
             try {
