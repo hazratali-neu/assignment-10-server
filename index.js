@@ -32,7 +32,6 @@ async function run() {
         app.post('/api/addticket', async (req, res) => {
             const data = req.body;
 
-            // ফ্রড চেক যোগ করুন
             const vendor = await usersCollection.findOne({ email: data.vendorEmail });
             if (vendor && vendor.isFraud === true) {
                 return res.status(403).send({ message: "Access Denied: You are restricted from adding tickets." });
