@@ -66,24 +66,29 @@ async function run() {
                 const result = await addTicketCollection
                     .find({ verificationStatus: "approved", isHidden: { $ne: true } })
                     .sort({ _id: -1 })  
-                    .limit(8)            
+                    .limit(8) 
+                    .toArray()           
                 res.send(result);
             } catch (error) {
                 res.status(500).send({ message: "Failed to fetch latest tickets" });
             }
         });
 
-        app.get('/api/tickets/advertised', async (req, res) => {
-            try {
-                const result = await addTicketCollection.find({
-                    verificationStatus: "approved",
-                    $or: [{ isAdvertised: true }, { isAdvertised: "true" }]
-                }).toArray();
-                res.send(result);
-            } catch (error) {
-                res.status(500).send({ message: "Server Error" });
-            }
-        });
+    app.get('/api/tickets/advertised', async (req, res) => {
+    try {
+        const result = await addTicketCollection
+            .find({
+                verificationStatus: "approved",
+                isAdvertised: true
+            })
+            .limit(6)
+            .toArray();
+
+        res.send(result);
+    } catch (error) {
+        res.status(500).send({ message: "Server Error" });
+    }
+});
 
         app.get('/api/tickets/:id', async (req, res) => {
             try {
@@ -215,3 +220,4 @@ run().catch(console.dir);
 
 app.get('/', (req, res) => { res.send('Hello World!') })
 app.listen(port, () => { console.log(`Listening on port ${port}`) })
+//hello
