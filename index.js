@@ -18,9 +18,13 @@ const client = new MongoClient(uri, {
     }
 });
 
-async function run() {
-    try {
-        await client.connect();
+// async function run() {
+//     try {
+//         await client.connect();
+ 
+        client.connect(()=>{
+            console.log("connecting to mongo db");
+        }).catch(console.dir)
 
         const database = client.db("onlineTicket");
         const addTicketCollection = database.collection('addTicket');
@@ -49,6 +53,7 @@ async function run() {
                 const result = await addTicketCollection.find(query).toArray();
                 res.send(result);
             } catch (error) {
+                console.log(error);
                 res.status(500).send({ message: "Data fetch error" });
             }
         });
@@ -217,11 +222,14 @@ async function run() {
             res.status(200).send({ success: true, result });
         });
 
-        await client.db("admin").command({ ping: 1 });
-        console.log("Connected to MongoDB!");
-    } finally { }
-}
-run().catch(console.dir);
+
+                // await client.db("admin").command({ ping: 1 });
+//         console.log("Connected to MongoDB!");
+//     } finally { }
+// }
+// run().catch(console.dir);
 app.get('/', (req, res) => { res.send('Hello World!') })
 
 app.listen(port, () => { console.log(`Listening on port ${port}`) })
+
+module.exports=app;
